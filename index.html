@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero — Atardeceres de Matheu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+  /* ── SPLASH ─────────────────────────────── */
+  #splash {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 999; gap: 24px; padding: 2rem; transition: opacity 0.6s ease;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  .splash-icon { font-size: 48px; }
+  .splash-title { font-size: 22px; font-weight: 600; color: #f8fafc; text-align: center; }
+  .splash-subtitle { font-size: 13px; color: #64748b; text-align: center; letter-spacing: 0.5px; }
+  .splash-msg {
+    font-size: 14px; color: #94a3b8; min-height: 22px; text-align: center;
+    transition: opacity 0.3s;
+  }
+  .progress-wrap { width: min(300px, 80vw); }
+  .progress-track { height: 4px; background: #1e293b; border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #3b82f6; border-radius: 2px; width: 0%; transition: width 0.5s ease; }
+  .progress-label { font-size: 12px; color: #475569; text-align: right; margin-top: 6px; }
+
+  /* ── DASHBOARD ───────────────────────────── */
+  #dashboard { display: none; max-width: 700px; margin: 0 auto; padding: 1rem; }
+
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    background: #0f172a; color: #fff;
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 14px;
+  }
+  .top-bar h1 { font-size: 16px; font-weight: 600; }
+  .top-bar .update { font-size: 11px; color: #64748b; }
+  .refresh-btn {
+    background: #1e293b; border: none; color: #94a3b8;
+    padding: 6px 12px; border-radius: 8px; font-size: 12px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .refresh-btn:hover { background: #2d3f55; }
+
+  /* KPI grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  @media (min-width: 500px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+  .kpi {
+    background: #fff; border-radius: 14px; padding: 14px 16px;
+    border-left: 4px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .kpi-value { font-size: 30px; font-weight: 700; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+  .kpi.vendido { border-left-color: #10b981; } .kpi.vendido .kpi-value { color: #059669; }
+  .kpi.reservado { border-left-color: #f59e0b; } .kpi.reservado .kpi-value { color: #d97706; }
+  .kpi.preventa { border-left-color: #8b5cf6; } .kpi.preventa .kpi-value { color: #7c3aed; }
+  .kpi.disponible { border-left-color: #3b82f6; } .kpi.disponible .kpi-value { color: #2563eb; }
+
+  /* Cards */
+  .card {
+    background: #fff; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .card-title {
+    font-size: 12px; font-weight: 600; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  /* Barras */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-label { font-size: 13px; color: #334155; min-width: 90px; }
+  .bar-track { flex: 1; height: 10px; background: #f1f5f9; border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 5px; transition: width 1.2s cubic-bezier(.4,0,.2,1); width: 0%; }
+  .bar-count { font-size: 13px; font-weight: 600; color: #1e293b; min-width: 28px; text-align: right; }
+
+  /* Vendedores */
+  .vendedor-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+  }
+  .vendedor-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .vendedor-rank { font-size: 18px; font-weight: 700; color: #cbd5e1; min-width: 28px; }
+  .vendedor-name { font-size: 14px; color: #1e293b; flex: 1; margin-left: 8px; }
+  .vendedor-badge {
+    font-size: 12px; font-weight: 600; padding: 4px 12px;
+    background: #eff6ff; color: #1d4ed8; border-radius: 20px;
+  }
+  .vendedor-rank.r1 { color: #f59e0b; }
+  .vendedor-rank.r2 { color: #94a3b8; }
+  .vendedor-rank.r3 { color: #b45309; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 8px; font-size: 13px; font-weight: 500;
+    text-align: center; border-radius: 9px; cursor: pointer;
+    background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+  }
+  .tab.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+  .chart-container { position: relative; width: 100%; height: 220px; }
+
+  .empty { font-size: 13px; color: #94a3b8; text-align: center; padding: 16px 0; }
+
+  .error-box {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;
+    padding: 16px; text-align: center; color: #b91c1c; font-size: 13px; line-height: 1.6;
+  }
+
+  /* Donut chart */
+  .donut-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .donut-chart-box { position: relative; width: 140px; height: 140px; flex-shrink: 0; margin: 0 auto; }
+  .donut-legend { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-icon">🏘️</div>
+  <div class="splash-title">Atardeceres de Matheu</div>
+  <div class="splash-subtitle">TABLERO DE CONTROL — GRUPO MEC</div>
+  <div class="splash-msg" id="splash-msg">Iniciando...</div>
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="prog-fill"></div>
+    </div>
+    <div class="progress-label" id="prog-pct">0%</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="top-bar">
+    <div>
+      <h1>🏘️ Atardeceres de Matheu</h1>
+      <div class="update" id="last-update">—</div>
+    </div>
+    <button class="refresh-btn" onclick="initDashboard()">↺ Actualizar</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi vendido">
+      <div class="kpi-label">Vendidos</div>
+      <div class="kpi-value" id="k-vendido">—</div>
+      <div class="kpi-sub">lotes</div>
+    </div>
+    <div class="kpi reservado">
+      <div class="kpi-label">Reservados</div>
+      <div class="kpi-value" id="k-reservado">—</div>
+      <div class="kpi-sub">lotes</div>
+    </div>
+    <div class="kpi preventa">
+      <div class="kpi-label">Preventa</div>
+      <div class="kpi-value" id="k-preventa">—</div>
+      <div class="kpi-sub">lotes</div>
+    </div>
+    <div class="kpi disponible">
+      <div class="kpi-label">Disponibles</div>
+      <div class="kpi-value" id="k-disponible">—</div>
+      <div class="kpi-sub">lotes</div>
+    </div>
+  </div>
+
+  <!-- Estado general -->
+  <div class="card">
+    <div class="card-title">Distribución general</div>
+    <div class="donut-wrap">
+      <div class="donut-chart-box">
+        <canvas id="chart-donut" role="img" aria-label="Distribución de lotes por estado"></canvas>
+      </div>
+      <div class="donut-legend" id="donut-legend"></div>
+    </div>
+  </div>
+
+  <!-- Vendido por -->
+  <div class="card">
+    <div class="card-title">Vendido por</div>
+    <div class="bar-row">
+      <div class="bar-label">Grupo MEC</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-mec" style="background:#3b82f6"></div></div>
+      <div class="bar-count" id="cnt-mec">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Desarrollador</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-dev" style="background:#10b981"></div></div>
+      <div class="bar-count" id="cnt-dev">—</div>
+    </div>
+  </div>
+
+  <!-- Forma de pago -->
+  <div class="card">
+    <div class="card-title">Forma de pago</div>
+    <div class="bar-row">
+      <div class="bar-label">Contado</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-cont" style="background:#10b981"></div></div>
+      <div class="bar-count" id="cnt-cont">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">12 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-12" style="background:#3b82f6"></div></div>
+      <div class="bar-count" id="cnt-12">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">24 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-24" style="background:#8b5cf6"></div></div>
+      <div class="bar-count" id="cnt-24">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">36 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-36" style="background:#f59e0b"></div></div>
+      <div class="bar-count" id="cnt-36">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">48 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-48" style="background:#ec4899"></div></div>
+      <div class="bar-count" id="cnt-48">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">60 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-60" style="background:#f97316"></div></div>
+      <div class="bar-count" id="cnt-60">—</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">72 cuotas</div>
+      <div class="bar-track"><div class="bar-fill" id="bar-72" style="background:#ef4444"></div></div>
+      <div class="bar-count" id="cnt-72">—</div>
+    </div>
+  </div>
+
+  <!-- Vendedores MEC -->
+  <div class="card">
+    <div class="card-title">Vendedores Grupo MEC</div>
+    <div id="vendedor-list"></div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="card">
+    <div class="card-title">Estadísticas de ventas</div>
+    <div class="tabs">
+      <div class="tab active" id="tab-mes" onclick="switchTab('mes')">Por mes</div>
+      <div class="tab" id="tab-anio" onclick="switchTab('anio')">Por año</div>
+    </div>
+    <div id="chart-mes-wrap" class="chart-container">
+      <canvas id="chart-mes" role="img" aria-label="Operaciones por mes"></canvas>
+    </div>
+    <div id="chart-anio-wrap" class="chart-container" style="display:none">
+      <canvas id="chart-anio" role="img" aria-label="Operaciones por año"></canvas>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+<script>
+const SHEET_ID = '1UQHawDP3Zb5pIwofdU27UiVJWosarQz3QQVlzVmdYEk';
+const SHEET_NAME = 'Para Claude IA';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwd_QVMAUGzR2V7cUMnUd0zKvTqtTyGqdkfJmyWYWt5vAlJ2sTse5a12Kj6XM9Z67Kplw/exec';
+
+const PASOS = [
+  [0,  '⏳ Aguardá, abriendo Base de Datos...'],
+  [8,  '🔌 Estableciendo conexión con Google...'],
+  [18, '📂 Abriendo archivo de datos...'],
+  [30, '⬇️ Descargando registros del barrio...'],
+  [42, '📋 Leyendo información de lotes...'],
+  [54, '🔍 Verificando estados de cada lote...'],
+  [63, '📊 Calculando ventas y reservas...'],
+  [72, '👥 Analizando datos de vendedores...'],
+  [80, '📅 Procesando estadísticas mensuales...'],
+  [87, '⚙️ Optimizando datos para el tablero...'],
+  [93, '🎨 Preparando gráficos y visualizaciones...'],
+  [97, '✅ ¡Casi listo, ya terminamos!...'],
+];
+
+let chartMes = null, chartAnio = null, chartDonut = null;
+
+function setProgress(pct, msg) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent = Math.round(pct) + '%';
+  if (msg) document.getElementById('splash-msg').textContent = msg;
+}
+
+async function animateSplash() {
+  for (const [pct, msg] of PASOS) {
+    setProgress(pct, msg);
+    await sleep(380);
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+  return lines.slice(1).map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (cols[i] || '').replace(/^"|"$/g, '').trim(); });
+    return obj;
+  });
+}
+
+function setBar(id, pct) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.min(Math.max(pct, 0), 100) + '%';
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-mes').classList.toggle('active', tab === 'mes');
+  document.getElementById('tab-anio').classList.toggle('active', tab === 'anio');
+  document.getElementById('chart-mes-wrap').style.display = tab === 'mes' ? 'block' : 'none';
+  document.getElementById('chart-anio-wrap').style.display = tab === 'anio' ? 'block' : 'none';
+}
+
+function buildCharts(rows) {
+  const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const byMes = {}, byAnio = {};
+
+  rows.forEach(r => {
+    const sit = String(r['SITUACIÓN'] || r['SITUACION'] || '').toUpperCase().trim();
+    if (sit !== 'VENDIDO' && sit !== 'RESERVADO') return;
+    const mes = String(r['MES'] || '').toUpperCase().trim();
+    const anio = String(r['AÑO'] || r['ANO'] || r['Año'] || '').trim();
+    if (mes && MESES.includes(mes)) byMes[mes] = (byMes[mes] || 0) + 1;
+    if (anio && anio !== '' && anio !== 'undefined' && anio !== '0') byAnio[anio] = (byAnio[anio] || 0) + 1;
+  });
+
+  const mesLabels = MESES.filter(m => byMes[m]);
+  const mesData = mesLabels.map(m => byMes[m]);
+  const mesCortos = mesLabels.map(m => MESES_CORTOS[MESES.indexOf(m)]);
+
+  const anioLabels = Object.keys(byAnio).sort();
+  const anioData = anioLabels.map(a => byAnio[a]);
+
+  if (chartMes) chartMes.destroy();
+  if (chartAnio) chartAnio.destroy();
+
+  const commonOpts = (color) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y + ' operación' + (ctx.parsed.y !== 1 ? 'es' : '') } } },
+    scales: {
+      y: { ticks: { stepSize: 1, color: '#94a3b8', font: { size: 11 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
+      x: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { display: false }, border: { display: false } }
+    }
+  });
+
+  chartMes = new Chart(document.getElementById('chart-mes'), {
+    type: 'bar',
+    data: {
+      labels: mesCortos.length ? mesCortos : ['Sin datos'],
+      datasets: [{ label: 'Operaciones', data: mesData.length ? mesData : [0], backgroundColor: '#3b82f6', borderRadius: 6, borderSkipped: false }]
+    },
+    options: commonOpts('#3b82f6')
+  });
+
+  chartAnio = new Chart(document.getElementById('chart-anio'), {
+    type: 'bar',
+    data: {
+      labels: anioLabels.length ? anioLabels : ['Sin datos'],
+      datasets: [{ label: 'Operaciones', data: anioData.length ? anioData : [0], backgroundColor: '#10b981', borderRadius: 6, borderSkipped: false }]
+    },
+    options: commonOpts('#10b981')
+  });
+}
+
+function buildDonut(vendido, reservado, preventa, disponible) {
+  if (chartDonut) chartDonut.destroy();
+  const total = vendido + reservado + preventa + disponible || 1;
+  const datos = [vendido, reservado, preventa, disponible];
+  const colores = ['#059669','#d97706','#7c3aed','#2563eb'];
+  const etiquetas = ['Vendido','Reservado','Preventa','Disponible'];
+
+  chartDonut = new Chart(document.getElementById('chart-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: etiquetas,
+      datasets: [{ data: datos, backgroundColor: colores, borderWidth: 3, borderColor: '#fff', hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)` } }
+      }
+    }
+  });
+
+  const legend = document.getElementById('donut-legend');
+  legend.innerHTML = etiquetas.map((e, i) =>
+    `<div class="legend-item">
+      <div class="legend-dot" style="background:${colores[i]}"></div>
+      <span style="flex:1">${e}</span>
+      <strong>${datos[i]}</strong>
+      <span style="color:#94a3b8; font-size:11px; margin-left:4px">${Math.round(datos[i]/total*100)}%</span>
+    </div>`
+  ).join('');
+}
+
+async function initDashboard() {
+  document.getElementById('splash').style.display = 'flex';
+  document.getElementById('splash').classList.remove('hide');
+  document.getElementById('dashboard').style.display = 'none';
+  setProgress(0, '⏳ Iniciando...');
+
+  const anim = animateSplash();
+  let rows;
+
+  try {
+    const resp = await fetch(SCRIPT_URL);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    await anim;
+    rows = json;
+  } catch(e) {
+    await anim;
+    setProgress(100, '⚠️ No se pudo cargar el archivo.');
+    document.getElementById('splash-msg').innerHTML =
+      `<span style="color:#f87171">⚠️ Error al conectar con el servidor.<br>Revisá que el script esté publicado correctamente.</span>`;
+    return;
+  }
+
+  setProgress(100, '✅ ¡Datos cargados exitosamente!');
+  await sleep(600);
+  document.getElementById('splash').classList.add('hide');
+  await sleep(600);
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  // ── Procesar datos ────────────────────────
+  let vendido = 0, reservado = 0, preventa = 0, disponible = 0;
+  let mecCount = 0, devCount = 0;
+  let contado = 0;
+  const cuotas = {'12':0,'24':0,'36':0,'48':0,'60':0,'72':0};
+  const vendedores = {};
+
+  rows.forEach(r => {
+    const g = (k) => String(r[k] || '').replace(/\u200B/g,'').trim();
+    const sit = g('SITUACIÓN').toUpperCase() || g('SITUACION').toUpperCase();
+    const vendPor = g('VENDIDO POR').toUpperCase();
+    const vendMEC = g('VENDEDOR DE GRUPO MEC');
+    const pagForm = (g('CUOTAS\nCONTADO') || g('CUOTAS   CONTADO') || g('CUOTAS CONTADO') || g('CUOTAS_CONTADO')).toUpperCase();
+    const cantC = g('CANT CUOTAS') || g('CANTCUOTAS');
+
+    if (sit === 'VENDIDO') vendido++;
+    else if (sit === 'RESERVADO') reservado++;
+    else if (sit === 'PREVENTA') preventa++;
+    else if (sit === 'DISPONIBLE') disponible++;
+
+    if (sit === 'VENDIDO' || sit === 'RESERVADO') {
+      if (vendPor.includes('DESARROLLADOR')) devCount++;
+      else mecCount++;
+
+      if (pagForm === 'CONTADO') contado++;
+      else if (pagForm === 'CUOTAS' && cuotas[cantC] !== undefined) cuotas[cantC]++;
+
+      if (vendMEC && vendMEC.length > 1) {
+        vendedores[vendMEC] = (vendedores[vendMEC] || 0) + 1;
+      }
+    }
+  });
+
+  // KPIs
+  document.getElementById('k-vendido').textContent = vendido;
+  document.getElementById('k-reservado').textContent = reservado;
+  document.getElementById('k-preventa').textContent = preventa;
+  document.getElementById('k-disponible').textContent = disponible;
+
+  // Donut
+  buildDonut(vendido, reservado, preventa, disponible);
+
+  // Barras vendido por
+  const totalOp = mecCount + devCount || 1;
+  document.getElementById('cnt-mec').textContent = mecCount;
+  document.getElementById('cnt-dev').textContent = devCount;
+  setBar('bar-mec', mecCount / totalOp * 100);
+  setBar('bar-dev', devCount / totalOp * 100);
+
+  // Barras pago
+  const maxPago = Math.max(contado, ...Object.values(cuotas)) || 1;
+  document.getElementById('cnt-cont').textContent = contado;
+  setBar('bar-cont', contado / maxPago * 100);
+  ['12','24','36','48','60','72'].forEach(c => {
+    document.getElementById('cnt-' + c).textContent = cuotas[c];
+    setBar('bar-' + c, cuotas[c] / maxPago * 100);
+  });
+
+  // Vendedores
+  const vList = document.getElementById('vendedor-list');
+  const sorted = Object.entries(vendedores).sort((a,b) => b[1] - a[1]);
+  if (sorted.length === 0) {
+    vList.innerHTML = '<div class="empty">Sin datos de vendedores aún</div>';
+  } else {
+    vList.innerHTML = sorted.map(([n, c], i) =>
+      `<div class="vendedor-row">
+        <span class="vendedor-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</span>
+        <span class="vendedor-name">${n}</span>
+        <span class="vendedor-badge">${c} lote${c!==1?'s':''}</span>
+      </div>`
+    ).join('');
+  }
+
+  // Gráficos
+  buildCharts(rows);
+
+  // Timestamp
+  const now = new Date();
+  document.getElementById('last-update').textContent =
+    'Actualizado: ' + now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+}
+
+initDashboard();
+</script>
+</body>
+</html>
