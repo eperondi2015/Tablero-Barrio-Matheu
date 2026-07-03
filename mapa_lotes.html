@@ -19,10 +19,10 @@ body{background:#111827;font-family:-apple-system,BlinkMacSystemFont,sans-serif;
 .map-inner{position:relative;display:inline-block;min-width:100%}
 .map-img{display:block;width:100%;height:auto;min-width:600px}
 .ov{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
-.pin{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,0.9);box-shadow:0 1px 4px rgba(0,0,0,0.6);transform:translate(-50%,-50%)}
+.pin{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,0.9);box-shadow:0 1px 4px rgba(0,0,0,0.6);transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
 .pin.v{background:#ef4444}
 .pin.r{background:#f59e0b}
-.pin.p{background:#8b5cf6}
+.pin.p{background:#ef4444}
 .sbar{background:#0f172a;padding:6px 16px;font-size:11px;color:#475569;text-align:center;border-top:1px solid #1e293b;flex-shrink:0}
 .splash{position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:100;transition:opacity 0.5s}
 .splash.hide{opacity:0;pointer-events:none}
@@ -30,6 +30,12 @@ body{background:#111827;font-family:-apple-system,BlinkMacSystemFont,sans-serif;
 .s-bar{width:220px;height:3px;background:#1e293b;border-radius:2px;overflow:hidden}
 .s-fill{height:100%;background:#3b82f6;border-radius:2px;width:0%;transition:width 0.4s}
 .s-pct{font-size:11px;color:#334155}
+.tt{position:fixed;pointer-events:none;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:9px 13px;font-size:12px;color:#e2e8f0;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:200;display:none;line-height:1.55;white-space:nowrap}
+.tt b{color:#f8fafc;font-size:13px}
+.tt .row{display:flex;justify-content:space-between;gap:14px}
+.tt .lbl{color:#64748b}
+.tt .val{font-weight:600}
+.tt .val.price{color:#4ade80}
 </style>
 </head>
 <body>
@@ -61,7 +67,7 @@ body{background:#111827;font-family:-apple-system,BlinkMacSystemFont,sans-serif;
 <div class="leg">
   <div class="li"><div class="dot" style="background:#ef4444"></div>Vendido</div>
   <div class="li"><div class="dot" style="background:#f59e0b"></div>Reservado</div>
-  <div class="li"><div class="dot" style="background:#8b5cf6"></div>Preventa</div>
+  <div class="li"><div class="dot" style="background:#ef4444"></div>Preventa</div>
   <div class="li"><div class="dot" style="background:transparent;border-color:#475569"></div>Disponible</div>
   <div class="lc" id="lc"></div>
 </div>
@@ -72,6 +78,7 @@ body{background:#111827;font-family:-apple-system,BlinkMacSystemFont,sans-serif;
   </div>
 </div>
 <div class="sbar" id="sbar">Cargando...</div>
+<div class="tt" id="tt"></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbwd_QVMAUGzR2V7cUMnUd0zKvTqtTyGqdkfJmyWYWt5vAlJ2sTse5a12Kj6XM9Z67Kplw/exec';
 const STEPS=[[0,'⏳ Iniciando...'],[15,'🔌 Conectando con Google Sheets...'],[35,'⬇️ Descargando datos...'],[60,'🎨 Procesando estados...'],[82,'🗺️ Pintando pines...'],[95,'✅ Casi listo...']];
@@ -82,7 +89,108 @@ async function anim(){for(const[p,m]of STEPS){setP(p,m);await sleep(360);}}
 
 const PIN_COORDS = {1: [14.41, 6.78], 2: [16.05, 6.96], 3: [15.23, 11.89], 4: [15.18, 15.42], 5: [15.18, 18.59], 6: [14.36, 23.7], 7: [16.09, 23.88], 8: [19.95, 9.16], 9: [21.64, 9.25], 10: [23.36, 9.34], 11: [25.05, 9.43], 12: [19.86, 11.98], 13: [25.09, 11.89], 14: [19.82, 15.33], 15: [25.05, 15.42], 16: [19.82, 18.5], 17: [25.05, 18.59], 18: [19.91, 22.03], 19: [21.77, 22.11], 20: [23.32, 22.11], 21: [25.09, 22.03], 22: [28.91, 9.07], 23: [30.64, 9.25], 24: [32.36, 9.07], 25: [34.05, 9.43], 26: [28.82, 12.07], 27: [34.09, 11.98], 28: [28.82, 15.24], 29: [34.18, 15.33], 30: [28.73, 18.77], 31: [34.14, 18.77], 32: [28.64, 21.85], 33: [30.64, 21.85], 34: [32.5, 21.94], 35: [34.09, 21.94], 36: [38.05, 9.16], 37: [39.86, 9.16], 38: [41.32, 9.25], 39: [43, 9.25], 40: [37.82, 11.89], 41: [43.05, 12.07], 42: [37.82, 15.42], 43: [43, 15.33], 44: [37.82, 18.94], 45: [43.09, 19.12], 46: [37.77, 22.11], 47: [39.77, 21.85], 48: [41.18, 21.85], 49: [43, 21.85], 50: [47.05, 9.16], 51: [48.64, 9.34], 52: [50.36, 9.43], 53: [52, 9.07], 54: [47, 12.07], 55: [52.27, 12.25], 56: [46.91, 15.42], 57: [52.18, 15.42], 58: [46.86, 18.94], 59: [52.14, 19.12], 60: [46.91, 21.85], 61: [48.59, 21.85], 62: [50.23, 21.85], 63: [52.14, 21.76], 64: [56, 9.07], 65: [57.64, 8.99], 66: [59.36, 8.99], 67: [61.09, 8.9], 68: [55.91, 11.89], 69: [61.27, 11.81], 70: [56, 15.24], 71: [61.09, 15.42], 72: [55.95, 18.85], 73: [61.09, 18.85], 74: [56.09, 21.76], 75: [57.68, 21.76], 76: [59.36, 21.59], 77: [61.27, 21.76], 78: [64.96, 8.81], 79: [66.87, 8.99], 80: [68.51, 8.99], 81: [70.15, 9.07], 82: [64.87, 11.89], 83: [70.15, 12.25], 84: [64.83, 15.33], 85: [70.15, 15.51], 86: [64.69, 18.68], 87: [70.33, 18.77], 88: [64.78, 21.85], 89: [66.69, 21.76], 90: [68.19, 21.67], 91: [70.1, 21.85], 92: [74.05, 8.81], 93: [75.6, 8.81], 94: [77.24, 9.07], 95: [79.05, 8.99], 96: [74.01, 12.16], 97: [79.05, 12.16], 98: [74.01, 15.59], 99: [79.15, 15.24], 100: [73.96, 18.68], 101: [79.15, 18.33], 102: [74.01, 21.76], 103: [75.51, 22.03], 104: [77.37, 21.94], 105: [79.24, 21.67], 106: [83.05, 8.9], 107: [84.69, 9.07], 108: [86.42, 8.99], 109: [88.01, 8.99], 110: [83.1, 11.98], 111: [88.24, 11.89], 112: [83.1, 15.33], 113: [88.28, 15.42], 114: [83.01, 18.77], 115: [88.19, 18.85], 116: [83.24, 21.76], 117: [84.69, 21.76], 118: [86.46, 21.76], 119: [88.15, 21.5], 120: [92.24, 8.9], 121: [93.96, 9.07], 122: [96.15, 9.07], 123: [98.1, 8.9], 124: [92.15, 11.89], 125: [98.24, 11.89], 126: [92.05, 15.42], 127: [98.15, 15.42], 128: [92.01, 18.85], 129: [98.15, 18.94], 130: [92.05, 21.85], 131: [93.92, 21.59], 132: [96.15, 21.76], 133: [98.15, 21.41], 134: [20, 36.97], 135: [21.68, 37.06], 136: [23.36, 37.06], 137: [25.09, 37.15], 138: [19.91, 40.05], 139: [25.27, 40.14], 140: [19.86, 43.05], 141: [25.09, 43.22], 142: [19.77, 46.4], 143: [25.27, 46.48], 144: [19.77, 49.57], 145: [25.27, 49.66], 146: [19.82, 52.74], 147: [25.18, 52.92], 148: [19.91, 55.91], 149: [21.64, 55.82], 150: [23.32, 55.65], 151: [24.91, 55.74], 152: [29.09, 36.79], 153: [30.64, 36.97], 154: [32.55, 36.88], 155: [34.14, 36.79], 156: [29, 39.96], 157: [34.27, 39.96], 158: [28.91, 43.14], 159: [34.23, 43.14], 160: [28.68, 46.31], 161: [34.18, 46.4], 162: [28.91, 49.66], 163: [34.09, 49.74], 164: [28.86, 52.92], 165: [34.18, 52.92], 166: [28.91, 56], 167: [30.68, 55.91], 168: [32.41, 55.74], 169: [34.14, 55.74], 170: [38.05, 36.7], 171: [39.59, 36.79], 172: [41.45, 36.88], 173: [43, 36.88], 174: [37.95, 39.88], 175: [43.18, 39.88], 176: [37.82, 43.14], 177: [43.18, 43.05], 178: [37.86, 46.22], 179: [43.27, 46.4], 180: [37.82, 49.48], 181: [43.27, 49.48], 182: [37.82, 52.92], 183: [43.41, 52.83], 184: [37.82, 55.65], 185: [39.64, 55.74], 186: [41.27, 55.82], 187: [43.41, 55.74], 188: [47.05, 36.79], 189: [48.55, 37.06], 190: [50.41, 36.79], 191: [52, 36.7], 192: [46.91, 39.79], 193: [52.23, 39.88], 194: [46.91, 42.78], 195: [52.18, 43.05], 196: [46.91, 46.31], 197: [52.18, 46.4], 198: [46.73, 49.57], 199: [52.18, 49.57], 200: [46.82, 52.92], 201: [52.27, 52.92], 202: [47, 55.91], 203: [48.73, 55.74], 204: [50.36, 55.56], 205: [52.09, 55.74], 206: [56.27, 37.06], 207: [57.64, 37.15], 208: [59.32, 36.97], 209: [60.95, 37.41], 210: [55.86, 39.88], 211: [61.27, 39.96], 212: [55.82, 42.7], 213: [61.23, 43.05], 214: [55.82, 46.22], 215: [61.27, 46.4], 216: [55.82, 49.39], 217: [61.27, 49.57], 218: [55.77, 52.92], 219: [61.23, 52.83], 220: [56.18, 55.91], 221: [57.82, 55.91], 222: [59.32, 55.56], 223: [61, 55.65], 224: [65.1, 37.06], 225: [66.69, 36.88], 226: [68.37, 36.88], 227: [69.83, 37.06], 228: [64.74, 39.7], 229: [70.28, 39.96], 230: [64.74, 42.96], 231: [70.19, 43.05], 232: [64.69, 46.22], 233: [70.24, 46.48], 234: [64.65, 49.57], 235: [70.24, 49.57], 236: [64.69, 52.92], 237: [70.33, 52.92], 238: [64.96, 55.74], 239: [66.55, 55.91], 240: [68.28, 55.91], 241: [70.15, 56], 242: [73.96, 37.23], 243: [75.78, 37.06], 244: [77.37, 36.88], 245: [79.05, 36.88], 246: [74.01, 40.05], 247: [79.24, 39.96], 248: [73.96, 43.05], 249: [79.05, 43.22], 250: [74.05, 46.22], 251: [79.05, 46.4], 252: [73.96, 49.39], 253: [78.96, 49.39], 254: [74.15, 52.74], 255: [79.05, 52.92], 256: [74.24, 55.74], 257: [75.83, 55.47], 258: [77.51, 55.47], 259: [79.1, 55.47], 260: [83.1, 36.97], 261: [84.69, 36.88], 262: [86.51, 36.88], 263: [88.1, 36.97], 264: [83.24, 39.61], 265: [88.15, 39.88], 266: [83.24, 42.87], 267: [88.05, 43.22], 268: [83.33, 46.22], 269: [88.01, 46.22], 270: [83.37, 49.39], 271: [87.92, 49.3], 272: [83.37, 53], 273: [87.83, 52.92], 274: [83.01, 55.65], 275: [84.69, 55.56], 276: [86.55, 55.47], 277: [87.96, 55.65], 278: [92.15, 36.79], 279: [94.1, 36.7], 280: [95.96, 36.79], 281: [97.78, 37.15], 282: [21.36, 68.58], 283: [23, 68.58], 284: [25, 68.49], 285: [23.18, 74.31], 286: [23.23, 77.39], 287: [23.18, 80.65], 288: [23.18, 83.74], 289: [23.14, 87.17], 290: [23.27, 90.17], 291: [21.45, 94.93], 292: [23.09, 94.84], 293: [24.91, 94.93], 294: [29, 70.61], 295: [30.68, 70.78], 296: [32.36, 70.78], 297: [34, 70.96], 298: [28.82, 74.4], 299: [34.18, 74.48], 300: [28.73, 77.66], 301: [34.18, 77.66], 302: [28.59, 80.74], 303: [34.14, 80.56], 304: [28.73, 83.82], 305: [34.18, 83.91], 306: [28.73, 87.17], 307: [34.36, 87.17], 308: [28.73, 90.26], 309: [34.36, 90.26], 310: [28.82, 93.69], 311: [30.77, 93.6], 312: [32.32, 93.52], 313: [34, 93.43], 314: [38.09, 71.22], 315: [39.77, 71.14], 316: [41.45, 71.05], 317: [43.09, 71.14], 318: [37.86, 74.31], 319: [43.27, 74.57], 320: [37.64, 77.48], 321: [43.18, 77.57], 322: [37.77, 80.74], 323: [43.14, 80.83], 324: [37.86, 83.82], 325: [43.27, 84], 326: [37.64, 87.17], 327: [43.32, 87.17], 328: [37.73, 90.26], 329: [43.27, 90.52], 330: [37.95, 93.6], 331: [39.95, 93.69], 332: [41.45, 93.52], 333: [42.95, 93.43], 334: [47.09, 71.05], 335: [48.68, 70.61], 336: [50.36, 71.31], 337: [52, 70.96], 338: [46.68, 74.13], 339: [52.18, 74.22], 340: [46.73, 77.22], 341: [52.18, 77.3], 342: [46.82, 80.83], 343: [52.14, 80.83], 344: [46.77, 84], 345: [52.32, 83.82], 346: [46.86, 87.08], 347: [52.36, 87], 348: [46.91, 90.34], 349: [52.36, 90.26], 350: [47.05, 93.43], 351: [48.59, 93.34], 352: [50.36, 93.52], 353: [52.14, 93.43], 354: [56, 70.7], 355: [57.77, 70.87], 356: [59.36, 70.61], 357: [61, 70.96], 358: [55.64, 74.4], 359: [61.27, 74.04], 360: [55.73, 77.3], 361: [61.36, 77.57], 362: [55.73, 80.74], 363: [61.32, 80.48], 364: [55.68, 84], 365: [61.45, 83.91], 366: [55.77, 87.35], 367: [61.41, 87.35], 368: [55.82, 90.52], 369: [61.36, 90.52], 370: [56, 93.6], 371: [57.86, 93.16], 372: [59.45, 93.16], 373: [61.23, 93.16], 374: [65.05, 70.7], 375: [66.74, 70.96], 376: [68.42, 71.14], 377: [70.15, 71.31], 378: [64.78, 73.96], 379: [70.24, 74.13], 380: [64.69, 77.3], 381: [70.37, 77.66], 382: [64.74, 80.65], 383: [70.28, 80.83], 384: [64.65, 83.82], 385: [70.42, 84], 386: [64.69, 87.17], 387: [70.42, 87.26], 388: [64.65, 90.34], 389: [70.37, 90.43], 390: [64.96, 93.16], 391: [66.55, 92.99], 392: [68.24, 93.07], 393: [70.28, 93.25], 394: [74.1, 71.14], 395: [75.65, 71.31], 396: [77.42, 71.14], 397: [79.1, 71.4], 398: [74.15, 74.22], 399: [79.01, 74.31], 400: [74.1, 77.57], 401: [79.05, 77.48], 402: [74.15, 80.92], 403: [79.05, 80.56], 404: [74.15, 83.82], 405: [79.05, 84], 406: [74.1, 87.17], 407: [79.05, 87.17], 408: [74.15, 90.26], 409: [79.05, 90.08], 410: [73.96, 93.25], 411: [75.78, 93.16], 412: [77.74, 93.16], 413: [83.05, 70.96], 414: [84.78, 70.96], 415: [86.33, 70.96], 416: [82.92, 74.22], 417: [82.83, 77.48], 418: [88.51, 94.75], 419: [98.19, 68.67], 420: [98.24, 74.66], 421: [98.28, 78.1], 422: [98.33, 81.97], 423: [94.28, 85.59], 424: [98.28, 85.41], 425: [94.46, 88.93], 426: [98.37, 88.85], 427: [94.51, 92.11], 428: [98.33, 91.93], 429: [92.15, 95.19], 430: [94.15, 94.84], 431: [97.96, 95.28], 432: [98.07, 96.56]};
 
-function pintar(est){
+// Candidatos de nombres de columna (la planilla puede variar la redacción exacta)
+const MANZANA_KEYS = ['MANZANA','MZA','MZ'];
+const SURFACE_KEYS = ['METROS','M2','SUPERFICIE','SUP M2','SUP. M2','SUPERFICIE M2','MEDIDA','MEDIDAS','M²'];
+const PRICE_LISTA_KEYS = ['PRECIO DE LISTA','PRECIO LISTA','PRECIO LISTA USD','LISTA'];
+const PRICE_CONTADO_KEYS = ['PRECIO CONTADO','PRECIO DE CONTADO','CONTADO','PRECIO AL CONTADO'];
+const PRICE_VENTA_KEYS = ['PRECIO DE VENTA','PRECIO VENTA','VENTA'];
+const CANT_CUOTAS_KEYS = ['CANT CUOTAS','CANTCUOTAS','CANTIDAD DE CUOTAS'];
+const VENDIDO_POR_KEYS = ['VENDIDO POR'];
+
+function getVal(row, candidates){
+  if(!row) return null;
+  const keys = Object.keys(row);
+  for(const cand of candidates){
+    const k = keys.find(k=>k.trim().toUpperCase()===cand);
+    if(k && row[k]!==undefined && String(row[k]).trim()!=='') return row[k];
+  }
+  for(const cand of candidates){
+    const k = keys.find(k=>k.trim().toUpperCase().includes(cand));
+    if(k && row[k]!==undefined && String(row[k]).trim()!=='') return row[k];
+  }
+  return null;
+}
+
+function fmtSurface(v){
+  if(v===null) return '—';
+  const n = parseFloat(String(v).replace(/[^\d.,]/g,'').replace(',','.'));
+  if(isNaN(n)) return String(v);
+  return n.toLocaleString('es-AR') + ' m²';
+}
+
+function fmtPrice(v){
+  if(v===null) return '—';
+  const n = parseFloat(String(v).replace(/[^\d.,]/g,'').replace(',','.'));
+  if(isNaN(n)) return String(v);
+  return '$' + n.toLocaleString('es-AR');
+}
+
+function fmtField(row, candidates, fmt){
+  if(!row) return '<span style="color:#f87171">Lote sin fila en la planilla</span>';
+  const v = getVal(row, candidates);
+  if(v === null) return '–';
+  return fmt(v);
+}
+
+// Clasifica la columna "VENDIDO POR" en GRUPO MEC / DESARROLLADOR / OTRO
+function fmtVendidoPor(row){
+  if(!row) return '–';
+  const v = getVal(row, VENDIDO_POR_KEYS);
+  if(v === null) return '–';
+  const up = String(v).toUpperCase();
+  if(up.includes('DESARROLLADOR')) return 'DESARROLLADOR';
+  if(up.includes('MEC')) return 'GRUPO MEC';
+  return 'OTRO';
+}
+
+// Forma de pago: usa la columna "CUOTAS\nCONTADO" + "CANT CUOTAS"
+function fmtFormaPago(row){
+  if(!row) return '–';
+  const keys = Object.keys(row);
+  const pagKey = keys.find(k => k.trim().toUpperCase().replace(/\s+/g,' ').includes('CUOTAS') && k.trim().toUpperCase().includes('CONTADO'));
+  const pagForm = pagKey ? String(row[pagKey] || '').toUpperCase().trim() : '';
+  if(pagForm === 'CONTADO') return 'Contado';
+  if(pagForm === 'CUOTAS'){
+    const cant = getVal(row, CANT_CUOTAS_KEYS);
+    return cant ? cant + ' cuotas' : 'Cuotas';
+  }
+  return '–';
+}
+
+const tt = document.getElementById('tt');
+function showTT(e, lot, row, statusLabel){
+  const manzana = row ? (getVal(row, MANZANA_KEYS) || '–') : '–';
+  const metros = fmtField(row, SURFACE_KEYS, fmtSurface);
+  const lista = fmtField(row, PRICE_LISTA_KEYS, fmtPrice);
+  const contado = fmtField(row, PRICE_CONTADO_KEYS, fmtPrice);
+  const venta = fmtField(row, PRICE_VENTA_KEYS, fmtPrice);
+  const formaPago = fmtFormaPago(row);
+  const vendidoPor = fmtVendidoPor(row);
+  tt.innerHTML = `<div><b>Lote ${lot}</b> <span style="color:#94a3b8;font-size:11px">- ${statusLabel}</span></div>
+    <div class="row"><span class="lbl">Manzana</span><span class="val">${manzana}</span></div>
+    <div class="row"><span class="lbl">Metros</span><span class="val">${metros}</span></div>
+    <div class="row"><span class="lbl">Precio de Lista</span><span class="val price">${lista}</span></div>
+    <div class="row"><span class="lbl">Precio Contado</span><span class="val price">${contado}</span></div>
+    <div class="row"><span class="lbl">Precio de Venta</span><span class="val price">${venta}</span></div>
+    <div class="row"><span class="lbl">Forma de pago</span><span class="val">${formaPago}</span></div>
+    <div class="row"><span class="lbl">Vendido por</span><span class="val">${vendidoPor}</span></div>`;
+  tt.style.display = 'block';
+  moveTT(e);
+}
+function moveTT(e){
+  const pad = 14;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const tw = tt.offsetWidth || 180, th = tt.offsetHeight || 70;
+  if(x + tw > vw) x = e.clientX - tw - pad;
+  if(y + th > vh) y = e.clientY - th - pad;
+  tt.style.left = x + 'px';
+  tt.style.top = y + 'px';
+}
+function hideTT(){ tt.style.display = 'none'; }
+
+function pintar(est, rowsByLot){
   const ov=$('ov'); ov.innerHTML='';
   const img=$('mapimg');
   const iw=img.offsetWidth, ih=img.offsetHeight;
@@ -90,13 +198,17 @@ function pintar(est){
   const diam=r*2;
   for(const[lot,c]of Object.entries(PIN_COORDS)){
     const s=est[+lot]||'DISPONIBLE';
-    if(s==='DISPONIBLE') continue;
     const cls=s==='VENDIDO'?'v':s==='RESERVADO'?'r':'p';
     const px=c[0]/100*iw, py=c[1]/100*ih;
     const el=document.createElement('div');
     el.className='pin '+cls;
     el.style.cssText=`left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;`;
-    el.title='Lote '+lot+' — '+s;
+    if(s==='DISPONIBLE'){ el.style.background='transparent'; el.style.borderColor='#475569'; }
+    const row = rowsByLot ? (rowsByLot[+lot] || null) : null;
+    const statusLabel = s.charAt(0)+s.slice(1).toLowerCase();
+    el.addEventListener('mouseenter', e=>showTT(e, lot, row, statusLabel));
+    el.addEventListener('mousemove', moveTT);
+    el.addEventListener('mouseleave', hideTT);
     ov.appendChild(el);
   }
 }
@@ -107,23 +219,23 @@ async function init(){
   catch(e){await a;$('smsg').innerHTML='⚠️ Sin conexión';return;}
   await a; setP(100,'✅ ¡Listo!'); await sleep(450);
   $('splash').classList.add('hide');
-  const est={};let v=0,r=0,p=0,d=0;
+  const est={};const rowsByLot={};let v=0,r=0,p=0,d=0;
   rows.forEach(row=>{
     const n=parseInt(row['NRO LOTE']);
     const s=String(row['SITUACIÓN']||row['SITUACION']||'').toUpperCase().trim();
-    if(n)est[n]=s;
+    if(n){est[n]=s;rowsByLot[n]=row;}
     if(s==='VENDIDO')v++;else if(s==='RESERVADO')r++;else if(s==='PREVENTA')p++;else if(s==='DISPONIBLE')d++;
   });
   const img=$('mapimg');
   const doPaint=()=>{
-    pintar(est);
-    $('lc').innerHTML=`<span style="color:#ef4444;font-weight:600">${v}</span><span style="color:#94a3b8"> vend.</span>&nbsp;<span style="color:#f59e0b;font-weight:600">${r}</span><span style="color:#94a3b8"> res.</span>&nbsp;<span style="color:#8b5cf6;font-weight:600">${p}</span><span style="color:#94a3b8"> prev.</span>&nbsp;<span style="color:#64748b;font-weight:600">${d}</span><span style="color:#94a3b8"> disp.</span>`;
+    pintar(est, rowsByLot);
+    $('lc').innerHTML=`<span style="color:#ef4444;font-weight:600">${v}</span><span style="color:#94a3b8"> vend.</span>&nbsp;<span style="color:#f59e0b;font-weight:600">${r}</span><span style="color:#94a3b8"> res.</span>&nbsp;<span style="color:#ef4444;font-weight:600">${p}</span><span style="color:#94a3b8"> prev.</span>&nbsp;<span style="color:#64748b;font-weight:600">${d}</span><span style="color:#94a3b8"> disp.</span>`;
     const now=new Date();
     $('upd').textContent='Actualizado: '+now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     $('sbar').textContent=rows.length+' lotes · '+v+' vendidos · '+r+' reservados · '+p+' preventa · '+d+' disponibles';
   };
   if(img.complete&&img.offsetWidth>0) doPaint(); else img.onload=doPaint;
-  window.addEventListener('resize',()=>{ if(Object.keys(est).length) pintar(est); });
+  window.addEventListener('resize',()=>{ if(Object.keys(est).length) pintar(est, rowsByLot); });
 }
 init();
 </script>
